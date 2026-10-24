@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Ders: {{ l.alias }}{% endblock %}
+{% block main_class %} tight{% endblock %}
+{% block status_page %}DERS · {{ l.id }}{% endblock %}
+{% block content %}
+{% set unverified = '[kaynakla doğrulanacak]' %}
+{% set busy = ajob or (latest and latest.status == 'bekliyor') %}
+
+<nav aria-label="Konum" class="crumb">
+  <ol>
+    <li><a href="{{ href('home') }}">KATALOG</a></li>
+    <li aria-hidden="true">»</li>
+    <li><a href="{{ href('cat', l.category) }}">{{ cat.short|tr_upper }}</a></li>
+    <li aria-hidden="true">»</li>
+    <li aria-current="page">{{ l.alias|tr_upper }}</li>
+  </ol>
+</nav>
+
+{% if public and draft %}
+<p class="draftbox m0 fs15"><span class="vt vt22 t-accent">ÖNİZLEME » </span>Bu ders henüz yayımlanmadı; sayfa yalnızca yerel önizlemede görünüyor.</p>
+{% endif %}
+
+<div class="col g14" {% if busy %}data-poll="/lessons/{{ l.id }}/status"{% endif %}>
+  <div class="row base" style="gap:4px 20px">
+    {{ ui.title(l.alias|tr_upper, xl=true) }}
+    <span class="vt vt30 t-info">{{ l.id }}</span>
+  </div>
+  <div class="row g8">
+    <span class="tag">{{ l.component|tr_upper }} · {{ l.year }}</span>
+    <span class="tag">{{ l.bug_detail|tr_upper }}{% if l.cwe %} · {{ l.cwe }}{% endif %}</span>
+    <span class="tag">ZORLUK: {{ DIFFICULTIES[l.difficulty]|tr_upper }}</span>
+    <span class="tag">{{ l.era }} · {{ ERAS[l.era].years }}</span>
+    {{ ui.status_tag(l.status) }}
+    {% if l.kev %}<span class="tag tag-warn">! İSTİSMAR</span>{% endif %}
+  </div>
+</div>
+
+<ol aria-label="Ders adımları" class="steps">
+  <li class="s s-done">[✓] 1 DİFF'İ İNCELE</li>
+  <li class="sep" aria-hidden="true">──</li>
+  <li class="s {{ 's-done' if step > 2 else 's-cur' }}"{% if step == 2 %} aria-current="step"{% endif %}>[{{ '✓' if step > 2 else '»' }}] 2 KÖK NEDENİ TAHMİN ET</li>
+  <li class="sep" aria-hidden="true">──</li>
+  <li class="s {{ 's-cur' if step == 3 else '' }}"{% if step == 3 %} aria-current="step"{% endif %}>[{{ '»' if step == 3 else ' ' }}] 3 CEVAPLA KARŞILAŞTIR</li>
+</ol>
+
+<div class="two-col">
+<div class="main-col">
+
+  <section class="box col g10" aria-labelledby="baglam">
+    <h2 id="baglam" class="bt">BAĞLAM</h2>
+    <p class="m0 measure">{{ l.context }}</p>
+    <p class="m0 fs15 t-subtle"><span class="t-muted">korumalar:</span> {{ l.protections or ERAS[l.era].protections }}</p>
+  </section>
+
+  <section class="box flush" aria-labelledby="diff-baslik">
+    <h2 id="diff-baslik" class="bt">1 · DÜZELTME DİFF'İ</h2>
+    {% if view %}
+      {% set fx = l.fix %}
+      {% set title_html %}<span class="t-muted">{{ fx.file }}</span>{% if fx.function %} :: {{ fx.function }}(){% endif %}{% endset %}
+      {{ ui.diff(view, title_html, 'sol: ' ~ (l.affected_versions or 'yamasız') ~ ' · sağ: ' ~ (l.fixed_versions or 'yamalı'), key='lesson') }}
+      <p class="fs13 t-muted" style="margin:0;padding:8px 20px 12px">Kaynak: <a href="{{ fx.url }}" rel="noreferrer noopener" target="_blank">düzeltme commit'i{% if fx.commit %} · {{ fx.commit[:12] }}{% endif %}</a>. Diff, commit'ten birebir alınmış ve yalnızca ilgili hunk'lara kırpılmıştır.</p>
+    {% elif l.diff_type == 'binary' %}
+      <div class="rpad col g8">
+        <p class="m0 vt vt24 t-subtle">-- KAYNAK KOD YOK · YAMA YALNIZCA BİNARY'DE --</p>
+        <p class="m0 fs15 t-subtle">Bu bileşenin kaynak kodu yayımlanmıyor. Yamanın ne değiştirdiğini görmenin yolu, yama öncesi ve sonrası binary'leri decompile edip karşılaştırmak{% if public %}; <b>BİNARY DİFF</b> panelindeki sürüm çiftini patchdiff-tutor ile yerelde indirip Ghidra ile diff'leyebilirsin.{% else %}: <b>BİNARY DİFF</b> panelindeki düğme iki sürümü indirir ve Ghidra ile diff'ler.{% endif %}{% if l.binaries.function %} Analiz yazılarında öne çıkan fonksiyon: <code>{{ l.binaries.function }}</code>.{% endif %}</p>
+      </div>
+    {% else %}
+      <div class="rpad col g8">
+        <p class="m0 vt vt24 t-subtle">-- DOĞRULANMIŞ DÜZELTME DİFF'İ YOK --</p>
+        <p class="m0 fs15 t-subtle">Bu ders <b>aday</b> durumunda: kaynaklarda okunabilir bir düzeltme commit'i bulunamadı. Kaynaklar panelindeki duyuruları okuyarak ya da binary çiftini {% if public %}pdt ile analiz ederek{% else %}<a href="/runs?lesson={{ l.id }}">pdt ile analiz ederek</a>{% endif %} devam edebilirsin.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="box is-active col g16" aria-labelledby="tahmin-baslik" id="tahmin">
+    <h2 id="tahmin-baslik" class="bt">2 · ÖNCE TAHMİN ET</h2>
+    {% if public %}
+    <div class="col g14" data-selfcheck="{{ l.id }}">
+      <div>
+        <label class="lbl-q" for="tahmin-metin">Sence kök neden ne? Hangi veri güvenilmezdi, hangi kontrol eksikti?</label>
+        <div class="prompt-area">
+          <span class="vt" aria-hidden="true">&gt;</span>
+          <textarea id="tahmin-metin" rows="5" class="ctl" maxlength="4000" data-guess
+            placeholder="Kendi cümlelerinle yaz. Fonksiyon ve değişken adlarını kullanabilirsin." aria-describedby="tahmin-not"></textarea>
+        </div>
+        <p id="tahmin-not" class="hint">Tahminin yalnızca bu tarayıcıda saklanır, hiçbir yere gönderilmez. Yazdıktan sonra cevap anahtarını açıp kendin karşılaştır.</p>
+      </div>
+      <div class="row g14">
+        <button type="button" class="btn btn-p" data-open-answer>» CEVAPLA KARŞILAŞTIR</button>
+        {% if hints %}<button type="button" class="btn btn-g" data-hint-next>? İPUCU AÇ ({{ hints|length }} KALDI)</button>{% endif %}
+      </div>
+      {% if hints %}
+      <ol class="hint-list" aria-label="Açılan ipuçları" aria-live="polite" hidden data-hints>
+        {% for h in hints %}<li hidden><span class="vt vt22 t-subtle">İPUCU {{ loop.index }} » </span>{{ h }}</li>{% endfor %}
+      </ol>
+      {% endif %}
+    </div>
+    {% else %}
+      {% if request.query_params.get('hata') == 'kisa' %}<p class="flash flash-err m0">✗ TAHMİN EN AZ 10 KARAKTER OLMALI</p>{% endif %}
+      <form method="post" action="/lessons/{{ l.id }}/guess" class="col g14">
+        <div>
+          <label class="lbl-q" for="tahmin-metin">Sence kök neden ne? Hangi veri güvenilmezdi, hangi kontrol eksikti?</label>
+          <div class="prompt-area">
+            <span class="vt" aria-hidden="true">&gt;</span>
+            <textarea id="tahmin-metin" name="guess" rows="5" class="ctl" required minlength="10" maxlength="4000"
+              placeholder="Kendi cümlelerinle yaz. Fonksiyon ve değişken adlarını kullanabilirsin." aria-describedby="tahmin-not"></textarea>
+          </div>
+          <p id="tahmin-not" class="hint">Tahminin cevap anahtarıyla karşılaştırılır. Cevap doğrudan söylenmez, önce ipucu verilir.</p>
+        </div>
+        <div class="row g14">
+          <button type="submit" class="btn btn-p"{% if latest and latest.status == 'bekliyor' %} disabled{% endif %}>» TAHMİNİMİ DEĞERLENDİR</button>
+          {% set left = hints|length - hints_used %}
+          <button type="submit" class="btn btn-g" formaction="/lessons/{{ l.id }}/hint" formnovalidate{% if left <= 0 %} disabled{% endif %}>? İPUCU İSTE ({{ left }} KALDI)</button>
+        </div>
+      </form>
+
+      {% if hints_used %}
+      <ol class="hint-list" aria-label="Açılan ipuçları">
+        {% for h in hints[:hints_used] %}<li><span class="vt vt22 t-subtle">İPUCU {{ loop.index }} » </span>{{ h }}</li>{% endfor %}
+      </ol>
+      {% endif %}
+
+      {% if latest %}
+      <div class="res" aria-live="polite">
+        {% if latest.status == 'bekliyor' %}
+          <div class="res-head"><span class="vt vt22 t-muted">DENEME · {{ latest.created_at|dt }}</span><span class="busy">DEĞERLENDİRİLİYOR <span class="cur" aria-hidden="true">█</span></span></div>
+          <div class="rpad col g10">
+            {% if latest.waiting_agent %}
+            <p class="agentbox m0">İstek Claude Code kuyruğunda. Claude Code oturumunda <code>/pdt-kuyruk</code> çalıştır; yanıt gelince bu sayfa kendiliğinden yenilenir.</p>
+            {% else %}<p class="m0 fs14 t-subtle">Sonuç gelince sayfa kendiliğinden yenilenir.</p>{% endif %}
+            <form method="post" action="/lessons/{{ l.id }}/cancel"><button class="btn btn-g btn-sm">İPTAL</button></form>
+          </div>
+        {% elif latest.status == 'hata' %}
+          <div class="res-head"><span class="vt vt22 t-muted">DENEME · {{ latest.created_at|dt }}</span><span class="st st-err">✗ DEĞERLENDİRİLEMEDİ</span></div>
+          <div class="rpad"><p class="m0 fs15">{{ latest.error }}</p><p class="hint">Tahminin kaydedildi; ayarları kontrol edip yeniden gönderebilirsin.</p></div>
+        {% else %}
+          <div class="res-head">
+            <span class="vt vt22 t-muted">SON DENEME · {{ latest.created_at|dt }}</span>
+            <span class="score">{{ latest.score }}<small>/10</small></span>
+          </div>
+          <div class="res-body">
+            <div><p class="vt vt22 t-info" style="margin:0 0 4px">+ DOĞRU BULDUĞUN</p><p>{{ latest.correct }}</p></div>
+            <div><p class="vt vt22 t-dawn" style="margin:0 0 4px">! EKSİK KALAN</p><p>{{ latest.missing }}</p></div>
+            <div class="res-hint"><p><span class="vt vt22 t-subtle">İPUCU » </span>{{ latest.hint }}</p></div>
+          </div>
+        {% endif %}
+      </div>
+      {% if attempts|length > 1 %}
+      <p class="m0 fs14 t-subtle">Önceki denemeler: {% for a in attempts[1:] %}{% if a.status == 'tamam' %}{{ a.score }}/10{% else %}—{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}{% if best is not none %} · en iyi: <b class="t-text">{{ best }}/10</b>{% endif %}</p>
+      {% endif %}
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="box nopad" aria-labelledby="cevap-baslik">
+    <details>
+      <summary class="sum">
+        <span class="chev" aria-hidden="true">►</span>
+        <span class="col g4 grow">
+          <span id="cevap-baslik" class="sumt">3 · CEVAP ANAHTARINI GÖSTER</span>
+          <span class="fs14 t-subtle">Kök neden özeti ve yamanın etkisi. Önce tahminini yazman önerilir.</span>
+        </span>
+      </summary>
+      <div class="answer">
+        <p><span class="k t-accent">KÖK NEDEN » </span>{{ l.answer.root_cause }}</p>
+        <p><span class="k t-info">YAMANIN ETKİSİ » </span>{{ l.answer.patch_effect }}</p>
+        {% if l.sink %}<p class="fs15"><span class="k t-dawn">SOURCE → SINK » </span>{% if l.sink.source %}<code>{{ l.sink.source }}</code> → {% endif %}<code>{{ l.sink.sink }}</code> <span class="tag">{{ SINK_CLASSES.get(l.sink['class'], l.sink['class']) }}</span>{% if l.sink.guard %} · yamanın eklediği guard: <code>{{ l.sink.guard }}</code>{% endif %}</p>{% endif %}
+        {% if result %}
+        <hr style="border:0;border-top:1px dashed var(--c-line-dim);width:100%;margin:4px 0">
+        <p><span class="k t-dawn">AI ÖZETİ » </span>{{ result.summary }}</p>
+        <p><span class="k t-dawn">AI KÖK NEDEN » </span>{{ result.root_cause }} <span class="t-muted fs14">({{ result.bug_class }} · güven: {{ result.confidence }})</span></p>
+        {% if result.concepts or result.questions %}
+        <div class="grid grid-280 learn">
+          {% if result.concepts %}<div><p class="vt vt22 t-muted" style="margin:0 0 6px">KAVRAMLAR</p><dl>{% for c in result.concepts %}<dt>{{ c.term }}</dt><dd>{{ c.explanation }}</dd>{% endfor %}</dl></div>{% endif %}
+          {% if result.questions %}<div><p class="vt vt22 t-muted" style="margin:0 0 6px">KENDİNİ SINA</p><ol>{% for q in result.questions %}<li>{{ q }}</li>{% endfor %}</ol></div>{% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+        {% if l.notes %}<p class="fs14 t-subtle"><span class="t-muted">not:</span> {{ l.notes }}</p>{% endif %}
+      </div>
+    </details>
+  </section>
+
+</div>
+
+<aside aria-label="Ders bilgileri">
+
+  {% if public %}
+  {% if analysis %}
+  <section class="box tight" aria-labelledby="ai-baslik" id="ai">
+    <h2 id="ai-baslik" class="bt">AI ANALİZİ</h2>
+    <div class="saved">
+      <span class="vt">✓ KAYITLI ANALİZ</span>
+      <span>model: {{ analysis.model }}</span>
+      {% if analysis.created_at %}<span>tarih: {{ analysis.created_at|dt }}</span>{% endif %}
+      <span class="t-muted">satır yorumları diff'in üstünde, özet cevap anahtarında</span>
+    </div>
+    {% if view and view.notes %}<button type="button" class="btn btn-p w100" data-notes-toggle aria-pressed="false" data-on="SATIR YORUMLARINI GİZLE" data-off="» SATIR YORUMLARINI GÖSTER">» SATIR YORUMLARINI GÖSTER</button>{% endif %}
+  </section>
+  {% endif %}
+  {% else %}
+  <section class="box tight" aria-labelledby="ai-baslik" id="ai">
+    <h2 id="ai-baslik" class="bt">AI ANALİZİ</h2>
+    {% if ajob %}
+      <button type="button" class="btn btn-p w100" disabled>» ANALİZ EDİLİYOR <span class="cur" aria-hidden="true">█</span></button>
+      {% if ajob.status == 'waiting_agent' %}
+      <p class="agentbox m0">İstek Claude Code kuyruğunda. Claude Code oturumunda <code>/pdt-kuyruk</code> çalıştır.</p>
+      {% else %}<p class="m0 fs13 t-muted">Sonuç gelince sayfa kendiliğinden yenilenir.</p>{% endif %}
+      <form method="post" action="/lessons/{{ l.id }}/cancel"><button class="btn btn-g btn-sm w100">İPTAL</button></form>
+    {% elif budget.blocks and not analysis %}
+      <div class="warnbox"><span class="vt vt22 t-dawn">! BÜTÇE DOLDU</span><span>Bu ayın AI bütçesi ({{ budget.limit|usd }}) kullanıldı. Ders AI olmadan da çalışılabilir.</span><a href="/settings#butce">Ayarlar → Bütçe »</a></div>
+    {% else %}
+      {% if a_error %}
+      <div class="errbox"><span class="st st-err" style="align-self:flex-start">✗ HATA</span><span>{{ a_error }}</span></div>
+      {% endif %}
+      {% if analysis %}
+      <div class="saved">
+        <span class="vt">✓ KAYITLI ANALİZ</span>
+        <span>model: {{ analysis.model }}</span>
+        <span>tarih: {{ analysis.created_at|dt }}</span>
+        <span class="t-muted">tekrar açınca ücret ödenmez</span>
+      </div>
+      {% if view and view.notes %}<button type="button" class="btn btn-p w100" data-notes-toggle aria-pressed="false" data-on="SATIR YORUMLARINI GİZLE" data-off="» SATIR YORUMLARINI GÖSTER">» SATIR YORUMLARINI GÖSTER</button>{% endif %}
+      {% if budget.blocks %}
+      <div class="warnbox"><span class="vt vt22 t-dawn">! BÜTÇE DOLDU</span><a href="/settings#butce">Ayarlar → Bütçe »</a></div>
+      {% else %}
+      <form method="post" action="/lessons/{{ l.id }}/analyze"><button class="btn btn-g w100">↻ YENİDEN ANALİZ ET</button></form>
+      {% endif %}
+      {% else %}
+      <form method="post" action="/lessons/{{ l.id }}/analyze"><button class="btn {{ 'btn-g' if a_error else 'btn-p' }} w100">{{ '↻ TEKRAR DENE' if a_error else '» AI İLE ANALİZ ET' }}</button></form>
+      <p class="m0 fs13 t-subtle">Satır yorumları, kök neden ve kavramlar üretilir. <b>Sonuç kaydedilir</b>; tekrar açınca yeniden üretilmez.</p>
+      {% endif %}
+      <p class="m0 fs13 t-muted">~{{ est.total|num }} token · {% if est.note %}{{ est.note }}{% else %}≈ {{ est.usd|usd }}{% endif %}</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="box tight" aria-labelledby="kunye-baslik" style="padding-bottom:6px">
+    <h2 id="kunye-baslik" class="bt">KÜNYE</h2>
+    <dl class="kv">
+      <dt>BİLEŞEN</dt><dd>{{ l.subcategory or l.component }}{% if l.subcategory and l.subcategory|lower != l.component %} · {{ l.component }}{% endif %}</dd>
+      <dt>ETKİLENEN</dt><dd class="{{ 't-plum' if l.affected_versions else 't-subtle' }}">{{ l.affected_versions or unverified }}</dd>
+      <dt>DÜZELTİLEN</dt><dd class="{{ 't-info' if l.fixed_versions else 't-subtle' }}">{{ l.fixed_versions or unverified }}</dd>
+      <dt>CWE</dt><dd class="{{ '' if l.cwe else 't-subtle' }}">{{ l.cwe or unverified }}</dd>
+      <dt>DİFF TÜRÜ</dt><dd>{{ l.diff_type.replace('+', ' + ') }}</dd>
+      <dt>AKTİF İSTİSMAR</dt>
+      <dd>{% if l.kev is sameas true %}<span class="t-dawn">evet</span>{% if l.kev_source %} · <a href="{{ l.kev_source }}" rel="noreferrer noopener" target="_blank">kaynak</a>{% endif %}
+          {% elif l.kev is sameas false %}listede değil (CISA KEV)
+          {% else %}<span class="t-subtle">{{ unverified }}</span>{% endif %}</dd>
+      <dt>DURUM</dt>
+      <dd>{% if l.status == 'onayli' %}onaylı: düzeltme commit'iyle karşılaştırıldı
+          {% elif l.status == 'taslak' %}taslak: künye kaynaklardan dolduruldu, insan onayı bekliyor
+          {% else %}aday: düzeltme diff'i henüz doğrulanmadı{% endif %}</dd>
+      <dt>DOĞRULAMA</dt><dd class="fs14 t-subtle">{{ l.verification.checked_at }}</dd>
+      {% if public and pub and pub.at %}<dt>YAYIN</dt><dd class="fs14 t-subtle">{{ pub.at }}{% if pub.updated %} · güncelleme: {{ pub.updated }}{% endif %}</dd>{% endif %}
+    </dl>
+  </section>
+
+  <section class="box tight" aria-labelledby="bin-baslik">
+    <h2 id="bin-baslik" class="bt">{{ "PAKET DİFF" if l.binaries and l.binaries.source not in ("debian", "winbindex", "url") else "BİNARY DİFF" }}</h2>
+    {% set b = l.binaries %}
+    {% if b %}
+      <dl class="kv fs14">
+        {% if b.source == 'debian' %}
+        <dt>KAYNAK</dt><dd>Debian · {{ b.package or b.new_package }}</dd>
+        <dt>SÜRÜMLER</dt><dd><span class="t-plum">{{ b.old }}</span> → <span class="t-info">{{ b.new }}</span></dd>
+        <dt>DOSYA</dt><dd class="break">{{ b.path or b.new_path }}</dd>
+        {% elif b.source == 'winbindex' %}
+        <dt>KAYNAK</dt><dd>Windows · {{ b.file }} · {{ b.arch or 'x64' }}</dd>
+        <dt>GÜNCELLEME</dt><dd>{{ b.kb or (b.old_version ~ ' → ' ~ b.new_version) }}{% if b.winver %} · {{ b.winver }}{% endif %}</dd>
+        {% elif b.source == 'url' %}
+        <dt>KAYNAK</dt><dd>doğrudan bağlantı · {{ b.name }}</dd>
+        {% else %}
+        <dt>KAYNAK</dt><dd>{{ b.source }} · {{ b.package }}</dd>
+        <dt>SÜRÜMLER</dt><dd><span class="t-plum">{{ b.old }}</span> → <span class="t-info">{{ b.new }}</span></dd>
+        {% endif %}
+      </dl>
+      {% if public %}
+      <p class="hint m0">{% if b.source in ('debian', 'winbindex', 'url') %}İki sürüm {{ 'snapshot.debian.org' if b.source == 'debian' else ('Microsoft sembol sunucusu' if b.source == 'winbindex' else 'kaynak adres') }}'dan indirilebilir; patchdiff-tutor bu çifti Ghidra ile diff'ler.{% else %}İki sürümün kaynak arşivi paket deposundan indirilebilir; patchdiff-tutor değişen fonksiyonları ve sink'leri karşılaştırır.{% endif %}</p>
+      {% else %}
+      <form method="post" action="/lessons/{{ l.id }}/fetch" class="col g8">
+        <label class="lbl" for="fetch-tutor">Öğretmen:</label>
+        <select id="fetch-tutor" name="tutor" class="ctl">
+          <option value="agent">claude code</option>
+          <option value="ai">ayarlardaki AI</option>
+          <option value="offline">offline</option>
+        </select>
+        <button type="submit" class="btn btn-p w100" style="white-space:normal">» İNDİR VE ANALİZ ET</button>
+        <p class="hint m0">{% if b.source in ('debian', 'winbindex', 'url') %}İki sürüm {{ 'snapshot.debian.org' if b.source == 'debian' else ('Microsoft sembol sunucusu' if b.source == 'winbindex' else 'kaynak adres') }}'dan indirilir, Ghidra ile diff'lenir ve Ghidra MCP projesine aktarılır.{% else %}İki sürümün kaynak arşivi indirilir; değişen fonksiyonlar, sink'ler ve source → sink yolları (Semgrep) karşılaştırılır.{% endif %}</p>
+      </form>
+      {% endif %}
+    {% endif %}
+    {% if runs %}
+      {% for r in runs %}
+      <a class="src" href="/runs?run={{ r.id }}"><span class="vt">[{{ r.status|tr_upper }}]</span><span class="fs15">{{ r.old_name }} → {{ r.new_name }}</span></a>
+      {% endfor %}
+      <a href="/runs?lesson={{ l.id }}" class="btn btn-g w100">+ YENİ ÇİFT ANALİZ ET</a>
+    {% elif l.diff_type == 'kaynak' and not b %}
+      <p class="m0 fs15 t-subtle">Bu ders yalnızca kaynak koddan çalışılır; derlenmiş binary diff'i anlamlı değil.</p>
+    {% elif not b %}
+      <p class="m0 fs15 t-subtle">Bu ders için henüz pdt raporu yok. Yamasız ve yamalı {{ l.component }} binary çiftini analiz ederek decompile koddaki farkı görebilirsin.</p>
+      {% if not public %}<a href="/runs?lesson={{ l.id }}" class="btn btn-g w100">» PDT İLE ANALİZ ET</a>{% endif %}
+    {% endif %}
+  </section>
+
+  <section class="box tight" aria-labelledby="kaynak-baslik" style="gap:8px">
+    <h2 id="kaynak-baslik" class="bt">KAYNAKLAR</h2>
+    {% for s in l.sources %}
+    <a href="{{ s.url }}" class="src" rel="noreferrer noopener" target="_blank"><span class="vt">[{{ SOURCE_TYPES[s.type] }}]</span><span class="fs15">{{ s.title }}</span></a>
+    {% endfor %}
+  </section>
+
+  <section class="box tight" aria-labelledby="soy-baslik" id="soy">
+    <h2 id="soy-baslik" class="bt">SOY AĞACI</h2>
+    {% if l.lineage %}
+      {% for ln in l.lineage %}
+      <div class="src">
+        <span class="vt">[{{ RELATIONS[ln.relation]|tr_upper }}]</span>
+        <span class="fs15">{% if ln.cve in in_cat %}<a href="{{ href('lesson', ln.cve) }}">{{ ln.cve }}</a>{% else %}{{ ln.cve }} <span class="t-muted fs13">({{ 'yayımlanmadı' if public else 'katalogda değil' }})</span>{% endif %}</span>
+        {% if ln.note %}<span class="fs14 t-subtle">{{ ln.note }}</span>{% endif %}
+        <a class="u" href="{{ ln.source }}" rel="noreferrer noopener" target="_blank">kaynak »</a>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="m0 vt vt22 t-muted">-- DOĞRULANMIŞ BAĞLANTI YOK --</p>
+    {% endif %}
+    {% if not public %}
+    {% for sg in sugg %}
+      <div class="src" style="border-style:dashed"><span class="vt">[ÖNERİ · DOĞRULANMADI]</span><span class="fs15">{{ sg.other_cve }} · {{ RELATIONS[sg.relation] }}</span><a class="u" href="{{ sg.source }}" rel="noreferrer noopener" target="_blank">{{ sg.source }}</a></div>
+    {% endfor %}
+    <details>
+      <summary class="btn btn-g w100">+ BAĞLANTI ÖNER</summary>
+      <form method="post" action="/lessons/{{ l.id }}/lineage" class="col g10" style="margin-top:12px">
+        {% if request.query_params.get('hata') == 'baglanti' %}<p class="flash flash-err m0">✗ CVE, İLİŞKİ VE KAYNAK GEREKLİ</p>{% endif %}
+        <p class="m0 fs14 t-subtle">Regresyon, atlatma ya da aynı aileden bir açıklık biliyorsan kaynağıyla öner. Öneriler doğrulanana kadar ayrı gösterilir.</p>
+        <div><label class="lbl" for="ln-cve">CVE:</label><input id="ln-cve" name="other_cve" class="ctl" placeholder="CVE-YYYY-NNNN" required pattern="CVE-\d{4}-\d{4,}"></div>
+        <div><label class="lbl" for="ln-rel">İlişki:</label>
+          <select id="ln-rel" name="relation" class="ctl">{% for k, v in RELATIONS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></div>
+        <div><label class="lbl" for="ln-src">Kaynak:</label><input id="ln-src" name="source" type="url" class="ctl" placeholder="https://… (ilişkiyi söyleyen sayfa)" required></div>
+        <div><label class="lbl" for="ln-note">Not:</label><input id="ln-note" name="note" class="ctl"></div>
+        <button class="btn btn-g">» ÖNERİYİ KAYDET</button>
+      </form>
+    </details>
+    {% endif %}
+  </section>
+
+  {% if not public %}
+  <section class="box tight" aria-labelledby="yayin-baslik" id="yayin">
+    <h2 id="yayin-baslik" class="bt">YAYIN</h2>
+    {% set q = request.query_params %}
+    {% if q.get('yayin') == 'ok' %}<p class="flash flash-ok m0" role="status">✓ YAYINLANDI</p><p class="m0 fs13 t-muted">GitHub Actions siteyi birkaç dakikada günceller.</p>
+    {% elif q.get('yayin') == 'ayni' %}<p class="flash flash-ok m0" role="status">✓ DEĞİŞİKLİK YOK</p>
+    {% elif q.get('yayin') == 'kaldirildi' %}<p class="flash flash-ok m0" role="status">✓ YAYINDAN KALDIRILDI</p>{% endif %}
+    {% if q.get('yayin_hata') %}<div class="errbox" role="alert"><span class="st st-err" style="align-self:flex-start">✗ YAYINLANAMADI</span><span class="break">{{ q.get('yayin_hata') }}</span></div>{% endif %}
+    {% if pubinfo.published %}
+    <div class="saved">
+      <span class="vt">✓ YAYINDA</span>
+      <span>ilk yayın: {{ pubinfo.at }}</span>
+      {% if pubinfo.updated %}<span>güncelleme: {{ pubinfo.updated }}</span>{% endif %}
+      {% if pubinfo.url %}<a href="{{ pubinfo.url }}" target="_blank" rel="noopener noreferrer">sitede aç »</a>{% endif %}
+    </div>
+    {% else %}
+    <p class="m0 fs14 t-subtle">Yayımlanmadı. Önizleme yalnızca yerelde üretilir; YAYINLA dersi ve kayıtlı AI analizini Markdown olarak GitHub reposuna commit'ler.</p>
+    {% endif %}
+    <form method="post" action="/lessons/{{ l.id }}/publish-preview"><button class="btn btn-g w100">» YAYIN ÖNİZLEMESİ</button></form>
+    {% if pubinfo.configured %}
+    <form method="post" action="/lessons/{{ l.id }}/publish"><button class="btn btn-p w100">{{ '↻ YAYINI GÜNCELLE' if pubinfo.published else '» YAYINLA' }}</button></form>
+    {% if pubinfo.published %}<form method="post" action="/lessons/{{ l.id }}/unpublish"><button class="btn btn-g btn-sm w100">YAYINDAN KALDIR</button></form>{% endif %}
+    <p class="m0 fs13 t-muted">hedef: {{ pubinfo.repo }} · {{ pubinfo.branch }}</p>
+    {% else %}
+    <p class="m0 fs13 t-muted">YAYINLA için <a href="/settings#yayin">Ayarlar → YAYIN</a>'da repo ve token gir.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+</aside>
+</div>
+{% endblock %}

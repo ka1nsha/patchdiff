@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}patchdiff-tutor{% endblock %} · patchdiff-tutor</title>
+<link rel="stylesheet" href="{{ href('static', 'css/app.css') }}">
+<link rel="preload" href="{{ href('static', 'fonts/VT323-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ href('static', 'fonts/IBMPlexMono-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
+</head>
+<body data-page="{{ page }}">
+<header>
+  <div class="wrap hdr">
+    <a href="{{ href('home') }}" class="logo-link" aria-label="patchdiff-tutor ana sayfa">
+      <div class="logo" aria-hidden="true"><div class="r1">█▀█ █▀█ ▀█▀ █▀▀ █ █ █▀▄ █ █▀▀ █▀▀</div><div class="r2">█▀▀ █▀█  █  █▄▄ █▀█ █▄▀ █ █▀  █▀ </div></div>
+      <span class="logo-tutor">tutor</span>
+    </a>
+    <div class="node">
+      <div>node 1 · <b>{{ public_addr }}</b></div>
+      <div>ai: <b>{{ ai_model }}</b></div>
+    </div>
+  </div>
+  <div class="wrap horizon" aria-hidden="true"><div></div><div></div><div></div></div>
+  <nav class="menu wrap" aria-label="Ana menü">
+    <ul>
+      <li><a href="{{ href('home') }}" accesskey="k"{% if page == 'katalog' %} aria-current="page"{% endif %}><span class="k">[K]</span>Katalog</a></li>
+      {% if not public %}
+      <li><a href="/runs" accesskey="a"{% if page == 'analizler' %} aria-current="page"{% endif %}><span class="k">[A]</span>Analizler</a></li>
+      <li><a href="/patches" accesskey="p"{% if page == 'yamalar' %} aria-current="page"{% endif %}><span class="k">[P]</span>Yeni yamalar</a></li>
+      <li><a href="/progress" accesskey="i"{% if page == 'ilerleme' %} aria-current="page"{% endif %}><span class="k">[İ]</span>İlerleme</a></li>
+      <li><a href="/settings" accesskey="y"{% if page == 'ayarlar' %} aria-current="page"{% endif %}><span class="k">[Y]</span>Ayarlar</a></li>
+      {% endif %}
+    </ul>
+  </nav>
+  <div class="shade wrap" aria-hidden="true">{{ shade }}</div>
+</header>
+
+<main class="wrap main{% block main_class %}{% endblock %}" id="icerik">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="vt">
+  <div class="shade wrap" aria-hidden="true">{{ shade }}</div>
+  <div class="statusbar">
+    <div class="wrap">
+      <span class="s-brand">PATCHDIFF BBS</span>
+      <span class="s-page">{% block status_page %}{{ page|tr_upper }}{% endblock %}</span>
+      <span class="s-info" id="status-info">{{ status_info }}</span>
+      {% if public %}<span class="s-online">● statik yayın</span>
+      {% elif worker.online %}<span class="s-online">● çevrimiçi</span>
+      {% else %}<span class="off" title="Worker nabzı alınamıyor; analizler ve AI işleri bekler.">○ worker çevrimdışı</span>{% endif %}
+    </div>
+  </div>
+</footer>
+<script src="{{ href('static', 'js/app.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{# Ortak bileşenler (DESIGN.md §5) #}
+
+{% macro title(text, xl=false) -%}
+<h1 class="h1{% if xl %} xl{% endif %}"><span class="pfx" aria-hidden="true">▓▒░ </span>{{ text }}</h1>
+{%- endmacro %}
+
+{% macro status_tag(status) -%}
+{%- if status == 'onayli' %}<span class="tag tag-ok">ONAYLI</span>
+{%- elif status == 'taslak' %}<span class="tag tag-draft">TASLAK</span>
+{%- else %}<span class="tag tag-cand">ADAY</span>{% endif -%}
+{%- endmacro %}
+
+{# Blok çubuk: aria-hidden, sayı her zaman metin olarak yanında (DESIGN.md §5.8) #}
+{% macro meter(n, m, cls='') -%}
+<span class="blk {{ cls }}" aria-hidden="true">{{ bar(n, m) }}</span>
+{%- endmacro %}
+
+{# Diff görüntüleyici. view: diffview.DiffView; key: localStorage anahtarı #}
+{% macro diff(view, title_html, legend_right='', key='diff', note_label='AI') -%}
+<div class="diff notes-hidden" data-mode="unified" data-key="{{ key }}">
+  <div class="dbar">
+    <span class="fs14 t-text break">{{ title_html }}</span>
+    <div class="row g6" role="group" aria-label="Diff görünümü">
+      <button type="button" class="seg" data-diff-mode="unified" aria-pressed="true">BİRLEŞİK</button>
+      <button type="button" class="seg" data-diff-mode="split" aria-pressed="false">YAN YANA</button>
+      {% if view.notes %}<button type="button" class="seg" data-notes-toggle aria-pressed="false">[ ] {{ note_label }} YORUMLARI</button>{% endif %}
+    </div>
+  </div>
+  <div class="dlegend">
+    <span><b class="t-plum">−</b> silinen</span>
+    <span><b class="t-info">+</b> eklenen</span>
+    {% if view.notes %}<span><b class="t-dawn">{{ note_label }}»</b> yorum ({{ view.notes }})</span>{% endif %}
+    {% if legend_right %}<span class="t-muted">{{ legend_right }}</span>{% endif %}
+  </div>
+  <div class="diffwrap">
+    <div class="duni">
+    {%- for r in view.unified %}
+      {%- if r.kind == 'code' %}
+      <div class="drow {{ r.cls }}"{% if r.fold %} data-fold-of="{{ r.fold }}" hidden{% endif %}><span class="dn">{{ r.o }}</span><span class="dn">{{ r.n }}</span><span class="dm" aria-hidden="true">{{ r.mark }}</span><span class="dt">{{ r.text }}</span></div>
+      {%- elif r.kind == 'note' %}
+      <div class="d-note"><span class="vt">{{ r.label }}»</span><span>{{ r.text }}</span></div>
+      {%- elif r.kind == 'fold' %}
+      <button type="button" class="d-fold" data-fold="{{ r.text }}">··· {{ r.count }} değişmeyen satır katlandı (göster) ···</button>
+      {%- elif r.kind == 'hunk' %}
+      <div class="d-hunk">{{ r.text }}</div>
+      {%- elif r.kind == 'file' %}
+      <div class="d-file">{{ r.text }}</div>
+      {%- endif %}
+    {%- endfor %}
+    </div>
+    <div class="dsplit">
+    {%- for r in view.split %}
+      {%- if r.kind == 'code' %}
+      <div class="srow"{% if r.fold %} data-fold-of="s{{ r.fold }}" hidden{% endif %}><span class="dn">{{ r.o }}</span><span class="{{ r.ocls }}">{{ r.otext }}</span><span class="dn">{{ r.n }}</span><span class="{{ r.ncls }}">{{ r.ntext }}</span></div>
+      {%- elif r.kind == 'note' %}
+      <div class="snote"><span class="vt">{% if r.onote %}{{ r.label }}»{% endif %}</span><span>{{ r.onote }}</span><span class="vt">{% if r.nnote %}{{ r.label }}»{% endif %}</span><span>{{ r.nnote }}</span></div>
+      {%- elif r.kind == 'fold' %}
+      <button type="button" class="d-fold" data-fold="s{{ r.text }}">··· {{ r.count }} değişmeyen satır katlandı (göster) ···</button>
+      {%- elif r.kind == 'hunk' %}
+      <div class="d-hunk">{{ r.text }}</div>
+      {%- elif r.kind == 'file' %}
+      <div class="d-file">{{ r.text }}</div>
+      {%- endif %}
+    {%- endfor %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}

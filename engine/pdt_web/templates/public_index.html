@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Açıklık kataloğu{% endblock %}
+{% block status_page %}KATALOG{% endblock %}
+{% block content %}
+{# Statik yayının ana sayfası (pdt_web/publish.py). Filtreler sunucusuz: app.js [data-pubfilter] #}
+<div class="col g8" style="max-width:760px">
+  {{ ui.title("AÇIKLIK KATALOĞU") }}
+  <p class="lead">Güvenlik yamalarını diff'leyerek öğren: yamasız ve yamalı kodun farkını incele, kök nedeni önce kendin tahmin et, sonra cevap anahtarıyla karşılaştır.</p>
+  <p class="m0 fs14 t-muted">{{ rows|length }} ders{% if updated %} · son güncelleme: {{ updated }}{% endif %} · dersler yalnızca kök nedeni ve yamanın etkisini anlatır; exploit/PoC içermez.</p>
+</div>
+
+{% if toc %}
+<section class="box toc" aria-labelledby="icindekiler-baslik" id="icindekiler">
+  <h2 id="icindekiler-baslik" class="bt">İÇİNDEKİLER</h2>
+  <div class="grid grid-280">
+    {% for g in toc %}
+    <div class="col g6">
+      <h3 class="toc-h"><a href="#alan-{{ g.code }}">{{ g.name|tr_upper }}</a> <span class="t-muted">({{ g.lessons|length }})</span></h3>
+      <ol class="toc-list">
+        {% for l in g.lessons %}
+        <li><a href="{{ href('lesson', l.id) }}"><span class="toc-id">{{ l.id }}</span> {{ l.alias }}</a>{% if l.id in drafts %} <span class="tag tag-cand">ÖNİZLEME</span>{% endif %}</li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="box form" aria-labelledby="filtre-baslik" data-pubfilter>
+  <h2 id="filtre-baslik" class="bt">DOSYA ALANLARI · FİLTRE</h2>
+  <div role="group" aria-label="Kategori" class="row g8">
+    <a class="tab" href="./" data-cat="all" aria-current="true">TÜMÜ <span style="opacity:.75">({{ rows|length }})</span></a>
+    {% for t in tabs %}
+    <a class="tab" href="?cat={{ t.code }}" data-cat="{{ t.code }}">{{ t.label }} <span style="opacity:.75">({{ t.count }})</span></a>
+    {% endfor %}
+  </div>
+  <div>
+    <label class="lbl" for="ara">Ara:</label>
+    <div class="prompt-search">
+      <span class="vt" aria-hidden="true">&gt;</span>
+      <input id="ara" type="search" class="ctl" placeholder="CVE, takma ad, bileşen… (ör. openssl)" data-q>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="liste-baslik" class="col g10">
+  <h2 id="liste-baslik" class="list-title" aria-live="polite"><span class="t-accent" data-count>{{ rows|length }}</span> DERS LİSTELENDİ</h2>
+  {% if not rows %}
+  <div class="empty"><p class="vt">*** HENÜZ YAYIMLANMIŞ DERS YOK ***</p></div>
+  {% else %}
+  <div class="flist">
+    <div class="frow fhead" aria-hidden="true">
+      <span>##</span><span>DERS</span><span>CVE</span><span>YIL · DÖNEM</span><span>ALAN · HATA SINIFI</span><span style="text-align:right">DURUM</span>
+    </div>
+    {% for g in toc %}
+    <div class="pgroup" id="alan-{{ g.code }}" data-group="{{ g.code }}">{{ g.name|tr_upper }}</div>
+    {% for l in g.lessons %}
+    <a href="{{ href('lesson', l.id) }}" class="frow" data-row data-cat="{{ l.category }}"
+       data-text="{{ (l.id ~ ' ' ~ l.alias ~ ' ' ~ l.component ~ ' ' ~ (l.subcategory or '') ~ ' ' ~ l.bug_detail)|tr_lower }}">
+      <span class="fnum">{{ '%02d' % loop.index }}</span>
+      <span><span class="al">{{ l.alias }}</span></span>
+      <span class="fcve">{{ l.id }}</span>
+      <span class="fyear">{{ l.year }} · {{ l.era }}</span>
+      <span class="fbug">{{ l.category }}/{{ l.component }} · {{ l.bug_detail }}</span>
+      <span class="ftags">
+        {{ ui.status_tag(l.status) }}
+        {% if l.kev %}<span class="tag tag-warn">! İSTİSMAR</span>{% endif %}
+        {% if l.id in analyzed %}<span class="tag">AI</span>{% endif %}
+        {% if l.id in drafts %}<span class="tag tag-cand">ÖNİZLEME</span>{% endif %}
+      </span>
+      <span class="fdesc"><span class="tree" aria-hidden="true">└─ </span>{{ l.teaser }}</span>
+    </a>
+    {% endfor %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
