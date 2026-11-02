@@ -253,6 +253,7 @@
           {% elif l.status == 'taslak' %}taslak: künye kaynaklardan dolduruldu, insan onayı bekliyor
           {% else %}aday: düzeltme diff'i henüz doğrulanmadı{% endif %}</dd>
       <dt>DOĞRULAMA</dt><dd class="fs14 t-subtle">{{ l.verification.checked_at }}</dd>
+      {% if l.origin and not public %}<dt>KÖKEN</dt><dd class="fs14">yerel ders (<code>data/lessons/{{ l.category }}/{{ l.id }}.json</code>) · <a href="/runs?run={{ l.origin.run }}#ders">analiz #{{ l.origin.run }}</a>{% if l.origin.feed %} · {{ l.origin.feed }}{% endif %}</dd>{% endif %}
       {% if public and pub and pub.at %}<dt>YAYIN</dt><dd class="fs14 t-subtle">{{ pub.at }}{% if pub.updated %} · güncelleme: {{ pub.updated }}{% endif %}</dd>{% endif %}
     </dl>
   </section>

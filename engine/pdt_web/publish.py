@@ -65,6 +65,7 @@ def lesson_to_md(lesson: dict[str, Any], analysis: dict[str, Any] | None = None,
                  published_at: str | None = None, updated_at: str | None = None) -> str:
     """analysis: {"model", "created_at", "result": {...}} (uygulamadaki son kayıtlı analiz) ya da None."""
     fm = json.loads(json.dumps(lesson))          # derin kopya
+    fm.pop("origin", None)                       # yerel dersin analiz kaydı (run kimliği) yayına gitmez
     if analysis and analysis.get("result"):
         fm["ai"] = {"model": analysis.get("model"), "created_at": analysis.get("created_at"),
                     **json.loads(json.dumps(analysis["result"]))}
